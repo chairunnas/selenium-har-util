@@ -146,22 +146,28 @@ public class NetworkListener {
         devTools.createSession(windowHandle);
         devTools.send(Network.enable(Optional.empty(), Optional.empty(), Optional.empty()));
         devTools.clearListeners();
-
+    
         requestResponseStorage = windowHandleStorageMap.get(windowHandle);
         if (requestResponseStorage == null) {
             requestResponseStorage = new RequestResponseStorage();
             windowHandleStorageMap.put(windowHandle, requestResponseStorage);
-
+    
             devTools.addListener(Network.requestWillBeSent(), requestConsumer -> {
                 Request request = requestConsumer.getRequest();
                 requestResponseStorage.addRequest(request, new Date());
             });
-
+    
             devTools.addListener(Network.responseReceived(), responseConsumer -> {
                 Response response = responseConsumer.getResponse();
-                String responseBody =
-                    devTools.send(Network.getResponseBody(responseConsumer.getRequestId()))
-                        .getBody();
+                String responseBody = null;
+                try {
+                    Network.GetResponseBodyResponse bodyResponse = devTools.send(Network.getResponseBody(responseConsumer.getRequestId()));
+                    responseBody = bodyResponse.getBody();
+                } catch (DevToolsException e) {
+                    // Log warning instead of throwing exception
+                    log.warn("Failed to get response body for request ID: " + responseConsumer.getRequestId() + ", resource may not be available: " + e.getMessage());
+                }
+                // Add response to storage even if responseBody is null
                 requestResponseStorage.addResponse(response, responseBody);
             });
         }
